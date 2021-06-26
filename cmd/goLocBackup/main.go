@@ -8,9 +8,12 @@ import (
 	"io"
 	"io/ioutil"
 	"os"
+	"os/signal"
 	"path/filepath"
 	"sort"
 	"strings"
+	"syscall"
+	"time"
 
 	"github.com/israbhu/goBackup/internal/pkg/gobackup"
 	"github.com/pelletier/go-toml"
@@ -366,6 +369,27 @@ type Account struct {
 }
 
 func main() {
+	go func() {
+		sigCh := make(chan os.Signal, 1)
+		// Watch for interrupt (CTRL-C, CTRL-BREAK) and SIGTERM
+		// (something asks the process to exit, like a kill command or
+		// OS logout)
+		signal.Notify(sigCh, os.Interrupt, syscall.SIGTERM)
+		s := <-sigCh
+		gobackup.Logger.Printf("Got signal %v, cleaning up...", s)
+		// FIXME callee will exit the program on error. This will
+		// prevent code after it from running, which would potentially
+		// be a problem if further clean-up code is desired.
+		gobackup.DeleteLock()
+		os.Exit(1)
+	}()
+
+	// FIXME For demonstration purposes only. This enters a sleep loop
+	// forever rather than continuing execution.
+	for {
+		time.Sleep(time.Second)
+	}
+
 	//command line can overwrite the data from the preferences file
 	extractCommandLine()
 
